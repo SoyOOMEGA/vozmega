@@ -43,10 +43,6 @@ console.log("🧠 Socket.IO activo en server");
 // FRONTEND STATIC FILES
 // -------------------------
 
-app.get("/", (req, res) => {
-    res.send("Servidor funcionando");
-});
-
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {

@@ -49,9 +49,12 @@ app.get("/", (req, res) => {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Player explícito para OBS
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 app.get("/player", (req, res) => {
-    res.sendFile(path.join(__dirname, "public/player.html"));
+    res.sendFile(path.join(__dirname, "public", "player.html"));
 });
 
 // -------------------------

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Voice Alerts Player</title>
+
+    <link rel="stylesheet" href="/css/player.css">
+
+</head>
+
+<body>
+
+    <div id="overlay" class="overlay hidden">
+
+        <div class="mic">
+
+            <!-- Micrófono SVG -->
+            <svg viewBox="0 0 24 24" fill="none">
+
+                <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z"/>
+
+                <path d="M19 11a7 7 0 0 1-14 0"/>
+
+                <path d="M12 18v3"/>
+
+                <path d="M8 21h8"/>
+
+            </svg>
+
+        </div>
+
+        <div class="content">
+
+            <div class="top">
+
+                <div class="title">
+                    Mensaje de voz
+                </div>
+
+                <div id="time" class="time">
+                    0:00
+                </div>
+
+            </div>
+
+            <div class="progress">
+
+                <div id="progressFill" class="progress-fill"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <audio id="audio"></audio>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/player.js"></script>
+
+</body>
+
+</html>

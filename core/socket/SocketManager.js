@@ -35,7 +35,9 @@ class SocketManager {
 
             this.browserManager.connect(browserId, socket.id);
 
-            console.log("🔌 Browser conectado:", browserId);
+            console.log(
+                `🔌 Browser conectado: ${browserId} | socket=${socket.id}`
+            );
 
             // -----------------------------
             // PLAYER
@@ -45,9 +47,10 @@ class SocketManager {
 
                 this.playerSocketId = socket.id;
 
-                console.log("🎧 Player registrado:", socket.id);
+                console.log(
+                    `🎧 Player registrado | socket=${socket.id}`
+                );
 
-                // Si había cola pendiente la continúa
                 setTimeout(() => {
                     this.tryPlayNext();
                 }, 300);
@@ -64,7 +67,9 @@ class SocketManager {
 
             socket.on("audio:send", (data) => {
 
-                console.log("📥 Audio recibido");
+                console.log(
+                    `📥 Audio recibido | browser=${browserId} | id=${data?.id}`
+                );
 
                 if (!data || !data.buffer || !data.mimeType)
                     return;
@@ -97,7 +102,9 @@ class SocketManager {
 
                 browser.addPendingAudio();
 
-                console.log("📦 Cola size:", this.queue.size());
+                console.log(
+                    `📦 Cola size: ${this.queue.size()}`
+                );
 
                 this.broadcastQueue();
 
@@ -111,8 +118,17 @@ class SocketManager {
 
             socket.on("audio:finished", () => {
 
-                if (!this.currentAudio)
+                console.log(
+                    `📥 audio:finished | socket=${socket.id}`
+                );
+
+                if (!this.currentAudio) {
+
+                    console.log("⚠ No existe currentAudio");
+
                     return;
+
+                }
 
                 clearTimeout(this.playTimeout);
 
@@ -130,7 +146,9 @@ class SocketManager {
                 this.currentAudio = null;
                 this.isPlaying = false;
 
-                console.log("✔ Audio terminado");
+                console.log(
+                    `✔ Audio terminado | cola restante=${this.queue.size()}`
+                );
 
                 this.broadcastQueue();
 
@@ -144,7 +162,9 @@ class SocketManager {
 
             socket.on("disconnect", (reason) => {
 
-                console.log("❌ Browser desconectado:", browserId, "-", reason);
+                console.log(
+                    `❌ Browser desconectado: ${browserId} | socket=${socket.id} | reason=${reason}`
+                );
 
                 this.browserManager.disconnect(browserId);
 
@@ -172,8 +192,17 @@ class SocketManager {
 
     tryPlayNext() {
 
-        if (this.isPlaying)
+        console.log(
+            `🔎 tryPlayNext | playing=${this.isPlaying} | player=${this.playerSocketId} | cola=${this.queue.size()}`
+        );
+
+        if (this.isPlaying) {
+
+            console.log("⏸ Ya hay un audio reproduciéndose");
+
             return;
+
+        }
 
         if (!this.playerSocketId) {
 
@@ -185,13 +214,20 @@ class SocketManager {
 
         const next = this.queue.peek();
 
-        if (!next)
+        if (!next) {
+
+            console.log("📭 Cola vacía");
+
             return;
+
+        }
 
         this.currentAudio = next;
         this.isPlaying = true;
 
-        console.log("▶ Enviando audio:", next.id);
+        console.log(
+            `▶ Enviando audio ${next.id} -> socket ${this.playerSocketId}`
+        );
 
         this.io.to(this.playerSocketId).emit("audio:play", next);
 
@@ -199,7 +235,9 @@ class SocketManager {
 
         this.playTimeout = setTimeout(() => {
 
-            console.log("⏰ Timeout del player");
+            console.log(
+                `⏰ Timeout del audio ${next.id}`
+            );
 
             const audio = this.queue.dequeue();
 
@@ -229,10 +267,12 @@ class SocketManager {
 
     broadcastQueue() {
 
+        console.log(
+            `📢 queue:update -> ${this.queue.size()}`
+        );
+
         this.io.emit("queue:update", {
-
             size: this.queue.size()
-
         });
 
     }

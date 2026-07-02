@@ -1,9 +1,4 @@
-const socket = io({
-    query: {
-        browserId: "PLAYER"
-    }
-});
-
+const socket = io({ reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, query: { browserId: "PLAYER" } }); // Logs de conexión socket.on("connect", () => { console.log("🟢 CONNECT", socket.id); }); socket.on("disconnect", (reason) => { console.log("🔴 DISCONNECT", reason); }); socket.io.on("reconnect_attempt", () => { console.log("🟡 RECONNECT..."); }); socket.io.on("reconnect", () => { console.log("🟢 RECONNECTED", socket.id); }); socket.io.on("reconnect_error", (err) => { console.log("❌ RECONNECT ERROR", err); });
 const overlay = document.getElementById("overlay");
 const audioElement = document.getElementById("audio");
 

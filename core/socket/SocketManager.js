@@ -43,19 +43,7 @@ class SocketManager {
             // PLAYER
             // -----------------------------
 
-            if (browserId === "PLAYER") {
-
-                this.playerSocketId = socket.id;
-
-                console.log(
-                    `🎧 Player registrado | socket=${socket.id}`
-                );
-
-                setTimeout(() => {
-                    this.tryPlayNext();
-                }, 300);
-
-            }
+            if (browserId === "PLAYER") { // Dar unos segundos para que Socket.IO se reconecte solo setTimeout(() => { if (this.playerSocketId === socket.id) { this.playerSocketId = null; this.isPlaying = false; clearTimeout(this.playTimeout); console.log("⚠ Player desconectado definitivamente"); } }, 5000);
 
             socket.emit("init", {
                 maxPending: this.config.get("maxPendingAudiosPerBrowser")

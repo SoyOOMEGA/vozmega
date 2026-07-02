@@ -14,7 +14,7 @@ class SocketManager {
         this.queue = queue;
         this.browserManager = browserManager;
 
-        this.playerSocket = null;
+        this.playerSocketId = null;
         this.isPlaying = false;
         this.currentAudio = null;
         this.playTimeout = null;
@@ -37,24 +37,30 @@ class SocketManager {
 
             console.log("🔌 Browser conectado:", browserId);
 
-            // Registrar PLAYER
+            // -----------------------------
+            // PLAYER
+            // -----------------------------
+
             if (browserId === "PLAYER") {
 
-                this.playerSocket = socket;
+                this.playerSocketId = socket.id;
 
-                console.log("🎧 Player registrado");
+                console.log("🎧 Player registrado:", socket.id);
 
-                // Si había audios esperando, intentar reproducir
-                this.tryPlayNext();
+                // Si había cola pendiente la continúa
+                setTimeout(() => {
+                    this.tryPlayNext();
+                }, 300);
+
             }
 
             socket.emit("init", {
                 maxPending: this.config.get("maxPendingAudiosPerBrowser")
             });
 
-            // --------------------------------
-            // AUDIO RECIBIDO
-            // --------------------------------
+            // -----------------------------
+            // RECIBIR AUDIO
+            // -----------------------------
 
             socket.on("audio:send", (data) => {
 
@@ -99,9 +105,9 @@ class SocketManager {
 
             });
 
-            // --------------------------------
+            // -----------------------------
             // AUDIO TERMINADO
-            // --------------------------------
+            // -----------------------------
 
             socket.on("audio:finished", () => {
 
@@ -121,10 +127,10 @@ class SocketManager {
 
                 }
 
-                console.log("✔ Audio terminado");
-
                 this.currentAudio = null;
                 this.isPlaying = false;
+
+                console.log("✔ Audio terminado");
 
                 this.broadcastQueue();
 
@@ -132,24 +138,25 @@ class SocketManager {
 
             });
 
-            // --------------------------------
+            // -----------------------------
             // DESCONECTADO
-            // --------------------------------
+            // -----------------------------
 
-            socket.on("disconnect", () => {
+            socket.on("disconnect", (reason) => {
 
-                console.log("❌ Browser desconectado:", browserId);
+                console.log("❌ Browser desconectado:", browserId, "-", reason);
 
                 this.browserManager.disconnect(browserId);
 
                 if (browserId === "PLAYER") {
 
-                    console.log("⚠ PLAYER desconectado");
+                    this.playerSocketId = null;
 
-                    this.playerSocket = null;
                     this.isPlaying = false;
 
                     clearTimeout(this.playTimeout);
+
+                    console.log("⚠ Player desconectado");
 
                 }
 
@@ -159,17 +166,22 @@ class SocketManager {
 
     }
 
-    // --------------------------------
-    // ENVIAR SIGUIENTE AUDIO
-    // --------------------------------
+    // -----------------------------
+    // SIGUIENTE AUDIO
+    // -----------------------------
 
     tryPlayNext() {
 
         if (this.isPlaying)
             return;
 
-        if (!this.playerSocket)
+        if (!this.playerSocketId) {
+
+            console.log("⏸ No hay PLAYER conectado");
+
             return;
+
+        }
 
         const next = this.queue.peek();
 
@@ -181,22 +193,24 @@ class SocketManager {
 
         console.log("▶ Enviando audio:", next.id);
 
-        this.playerSocket.emit("audio:play", next);
+        this.io.to(this.playerSocketId).emit("audio:play", next);
 
-        // Seguridad: si el player nunca responde
         clearTimeout(this.playTimeout);
 
         this.playTimeout = setTimeout(() => {
 
-            console.log("⏰ Timeout del player. Saltando audio.");
+            console.log("⏰ Timeout del player");
 
-            if (this.queue.size() > 0)
-                this.queue.dequeue();
+            const audio = this.queue.dequeue();
 
-            const browser = this.browserManager.get(next.browserId);
+            if (audio) {
 
-            if (browser)
-                browser.removePendingAudio();
+                const browser = this.browserManager.get(audio.browserId);
+
+                if (browser)
+                    browser.removePendingAudio();
+
+            }
 
             this.currentAudio = null;
             this.isPlaying = false;
@@ -209,9 +223,9 @@ class SocketManager {
 
     }
 
-    // --------------------------------
-    // ACTUALIZAR COLA
-    // --------------------------------
+    // -----------------------------
+    // COLA
+    // -----------------------------
 
     broadcastQueue() {
 

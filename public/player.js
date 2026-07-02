@@ -17,6 +17,10 @@ const socket = io({
 socket.on("connect", () => {
 
     console.log("🟢 CONNECT:", socket.id);
+    console.log("🎧 Player conectado");
+
+    // 🔥 FIX CRÍTICO: registrar el player en el backend
+    socket.emit("registerBrowser", "PLAYER");
 
 });
 
@@ -36,6 +40,9 @@ socket.io.on("reconnect", () => {
 
     console.log("🟢 RECONNECTED:", socket.id);
 
+    // 🔥 re-registro obligatorio tras reconexión
+    socket.emit("registerBrowser", "PLAYER");
+
 });
 
 socket.io.on("reconnect_error", (err) => {
@@ -50,6 +57,10 @@ socket.io.on("error", (err) => {
 
 });
 
+// -------------------------
+// UI
+// -------------------------
+
 const overlay = document.getElementById("overlay");
 const audioElement = document.getElementById("audio");
 
@@ -57,10 +68,6 @@ const progressFill = document.getElementById("progressFill");
 const time = document.getElementById("time");
 
 let animationFrame = null;
-
-// =========================
-// UI
-// =========================
 
 function showOverlay() {
 
@@ -83,15 +90,9 @@ function hideOverlay() {
 
 }
 
-// =========================
-// SOCKET
-// =========================
-
-socket.on("connect", () => {
-
-    console.log("🎧 Player conectado");
-
-});
+// -------------------------
+// AUDIO
+// -------------------------
 
 socket.on("audio:play", (audio) => {
 
@@ -101,36 +102,27 @@ socket.on("audio:play", (audio) => {
 
     const blob = new Blob(
         [new Uint8Array(audio.buffer)],
-        {
-            type: audio.mimeType
-        }
+        { type: audio.mimeType }
     );
 
     const url = URL.createObjectURL(blob);
 
     audioElement.src = url;
-
     audioElement.load();
 
     audioElement.play()
-        .then(() => {
-
-            startProgress();
-
-        })
+        .then(() => startProgress())
         .catch(console.error);
 
 });
 
 socket.on("queue:update", () => {
-
-    // reservado para futuras mejoras
-
+    // reservado
 });
 
-// =========================
+// -------------------------
 // PROGRESS
-// =========================
+// -------------------------
 
 function startProgress() {
 
@@ -139,10 +131,8 @@ function startProgress() {
     function update() {
 
         if (!audioElement.duration) {
-
             animationFrame = requestAnimationFrame(update);
             return;
-
         }
 
         const percent =
@@ -151,43 +141,30 @@ function startProgress() {
         progressFill.style.width = percent + "%";
 
         const remaining =
-            Math.max(
-                0,
-                Math.ceil(audioElement.duration - audioElement.currentTime)
-            );
+            Math.max(0, Math.ceil(audioElement.duration - audioElement.currentTime));
 
-        const minutes =
-            Math.floor(remaining / 60);
+        const minutes = Math.floor(remaining / 60);
+        const seconds = String(remaining % 60).padStart(2, "0");
 
-        const seconds =
-            String(remaining % 60).padStart(2, "0");
-
-        time.textContent =
-            `${minutes}:${seconds}`;
+        time.textContent = `${minutes}:${seconds}`;
 
         if (!audioElement.paused) {
-
-            animationFrame =
-                requestAnimationFrame(update);
-
+            animationFrame = requestAnimationFrame(update);
         }
-
     }
 
     update();
-
 }
 
-// =========================
-// FIN
-// =========================
+// -------------------------
+// FIN AUDIO
+// -------------------------
 
 audioElement.onended = () => {
 
     cancelAnimationFrame(animationFrame);
 
     progressFill.style.width = "0%";
-
     time.textContent = "0:00";
 
     URL.revokeObjectURL(audioElement.src);
@@ -195,5 +172,4 @@ audioElement.onended = () => {
     socket.emit("audio:finished");
 
     hideOverlay();
-
 };

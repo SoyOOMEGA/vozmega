@@ -43,7 +43,41 @@ class SocketManager {
             // PLAYER
             // -----------------------------
 
-            if (browserId === "PLAYER") { // Dar unos segundos para que Socket.IO se reconecte solo setTimeout(() => { if (this.playerSocketId === socket.id) { this.playerSocketId = null; this.isPlaying = false; clearTimeout(this.playTimeout); console.log("⚠ Player desconectado definitivamente"); } }, 5000);
+            socket.on("disconnect", (reason) => {
+
+    console.log(
+        `❌ Browser desconectado: ${browserId} | socket=${socket.id} | reason=${reason}`
+    );
+
+    this.browserManager.disconnect(browserId);
+
+    if (browserId === "PLAYER") {
+
+        console.log("⏳ Esperando posible reconexión del PLAYER...");
+
+        setTimeout(() => {
+
+            // Solo limpiar si este sigue siendo el socket actual del player
+            if (this.playerSocketId === socket.id) {
+
+                this.playerSocketId = null;
+                this.isPlaying = false;
+
+                clearTimeout(this.playTimeout);
+
+                console.log("⚠ Player desconectado definitivamente");
+
+            } else {
+
+                console.log("✅ El PLAYER ya se reconectó con otro socket");
+
+            }
+
+        }, 5000);
+
+    }
+
+});
 
             socket.emit("init", {
                 maxPending: this.config.get("maxPendingAudiosPerBrowser")

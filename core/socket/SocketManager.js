@@ -5,9 +5,7 @@ class SocketManager {
     constructor(httpServer, config, queue, browserManager) {
 
         this.io = new Server(httpServer, {
-            cors: {
-                origin: "*"
-            }
+            cors: { origin: "*" }
         });
 
         this.config = config;
@@ -33,73 +31,36 @@ class SocketManager {
                 return;
             }
 
+            // 🔥 REGISTRO GENERAL
             this.browserManager.connect(browserId, socket.id);
 
-            console.log(
-                `🔌 Browser conectado: ${browserId} | socket=${socket.id}`
-            );
+            console.log(`🔌 Browser conectado: ${browserId} | socket=${socket.id}`);
 
-            // -----------------------------
-            // PLAYER
-            // -----------------------------
+            // =============================
+            // 🔥 FIX CLAVE: IDENTIFICAR PLAYER
+            // =============================
+            if (browserId === "PLAYER") {
 
-            socket.on("disconnect", (reason) => {
+                this.playerSocketId = socket.id;
 
-    console.log(
-        `❌ Browser desconectado: ${browserId} | socket=${socket.id} | reason=${reason}`
-    );
-
-    this.browserManager.disconnect(browserId);
-
-    if (browserId === "PLAYER") {
-
-        console.log("⏳ Esperando posible reconexión del PLAYER...");
-
-        setTimeout(() => {
-
-            // Solo limpiar si este sigue siendo el socket actual del player
-            if (this.playerSocketId === socket.id) {
-
-                this.playerSocketId = null;
-                this.isPlaying = false;
-
-                clearTimeout(this.playTimeout);
-
-                console.log("⚠ Player desconectado definitivamente");
-
-            } else {
-
-                console.log("✅ El PLAYER ya se reconectó con otro socket");
-
+                console.log("🎧 PLAYER registrado:", socket.id);
             }
-
-        }, 5000);
-
-    }
-
-});
 
             socket.emit("init", {
                 maxPending: this.config.get("maxPendingAudiosPerBrowser")
             });
 
-            // -----------------------------
-            // RECIBIR AUDIO
-            // -----------------------------
-
+            // =============================
+            // AUDIO RECIBIDO
+            // =============================
             socket.on("audio:send", (data) => {
 
-                console.log(
-                    `📥 Audio recibido | browser=${browserId} | id=${data?.id}`
-                );
+                console.log(`📥 Audio recibido | browser=${browserId} | id=${data?.id}`);
 
-                if (!data || !data.buffer || !data.mimeType)
-                    return;
+                if (!data || !data.buffer || !data.mimeType) return;
 
                 const browser = this.browserManager.get(browserId);
-
-                if (!browser)
-                    return;
+                if (!browser) return;
 
                 if (!browser.canSendAudio()) {
 
@@ -111,145 +72,92 @@ class SocketManager {
                 }
 
                 const audio = {
-
                     id: data.id,
                     browserId,
                     mimeType: data.mimeType,
                     buffer: data.buffer,
                     createdAt: Date.now()
-
                 };
 
                 this.queue.enqueue(audio);
 
                 browser.addPendingAudio();
 
-                console.log(
-                    `📦 Cola size: ${this.queue.size()}`
-                );
+                console.log(`📦 Cola size: ${this.queue.size()}`);
 
                 this.broadcastQueue();
-
                 this.tryPlayNext();
-
             });
 
-            // -----------------------------
+            // =============================
             // AUDIO TERMINADO
-            // -----------------------------
-
+            // =============================
             socket.on("audio:finished", () => {
 
-                console.log(
-                    `📥 audio:finished | socket=${socket.id}`
-                );
-
-                if (!this.currentAudio) {
-
-                    console.log("⚠ No existe currentAudio");
-
-                    return;
-
-                }
+                console.log(`📥 audio:finished | socket=${socket.id}`);
 
                 clearTimeout(this.playTimeout);
 
                 const audio = this.queue.dequeue();
 
                 if (audio) {
-
                     const browser = this.browserManager.get(audio.browserId);
-
-                    if (browser)
-                        browser.removePendingAudio();
-
+                    if (browser) browser.removePendingAudio();
                 }
 
                 this.currentAudio = null;
                 this.isPlaying = false;
 
-                console.log(
-                    `✔ Audio terminado | cola restante=${this.queue.size()}`
-                );
-
                 this.broadcastQueue();
-
                 this.tryPlayNext();
-
             });
 
-            // -----------------------------
-            // DESCONECTADO
-            // -----------------------------
-
+            // =============================
+            // DISCONNECT (ÚNICO)
+            // =============================
             socket.on("disconnect", (reason) => {
 
-                console.log(
-                    `❌ Browser desconectado: ${browserId} | socket=${socket.id} | reason=${reason}`
-                );
+                console.log(`❌ Browser desconectado: ${browserId} | socket=${socket.id} | reason=${reason}`);
 
                 this.browserManager.disconnect(browserId);
 
                 if (browserId === "PLAYER") {
 
-                    this.playerSocketId = null;
+                    console.log("⚠ PLAYER desconectado");
 
-                    this.isPlaying = false;
-
-                    clearTimeout(this.playTimeout);
-
-                    console.log("⚠ Player desconectado");
-
+                    if (this.playerSocketId === socket.id) {
+                        this.playerSocketId = null;
+                        this.isPlaying = false;
+                        clearTimeout(this.playTimeout);
+                    }
                 }
-
             });
 
         });
 
     }
 
-    // -----------------------------
-    // SIGUIENTE AUDIO
-    // -----------------------------
-
+    // =============================
+    // PLAY NEXT
+    // =============================
     tryPlayNext() {
 
-        console.log(
-            `🔎 tryPlayNext | playing=${this.isPlaying} | player=${this.playerSocketId} | cola=${this.queue.size()}`
-        );
+        console.log(`🔎 tryPlayNext | playing=${this.isPlaying} | player=${this.playerSocketId} | cola=${this.queue.size()}`);
 
-        if (this.isPlaying) {
-
-            console.log("⏸ Ya hay un audio reproduciéndose");
-
-            return;
-
-        }
+        if (this.isPlaying) return;
 
         if (!this.playerSocketId) {
-
             console.log("⏸ No hay PLAYER conectado");
-
             return;
-
         }
 
         const next = this.queue.peek();
-
-        if (!next) {
-
-            console.log("📭 Cola vacía");
-
-            return;
-
-        }
+        if (!next) return;
 
         this.currentAudio = next;
         this.isPlaying = true;
 
-        console.log(
-            `▶ Enviando audio ${next.id} -> socket ${this.playerSocketId}`
-        );
+        console.log(`▶ Enviando audio ${next.id} -> socket ${this.playerSocketId}`);
 
         this.io.to(this.playerSocketId).emit("audio:play", next);
 
@@ -257,48 +165,26 @@ class SocketManager {
 
         this.playTimeout = setTimeout(() => {
 
-            console.log(
-                `⏰ Timeout del audio ${next.id}`
-            );
-
             const audio = this.queue.dequeue();
 
             if (audio) {
-
                 const browser = this.browserManager.get(audio.browserId);
-
-                if (browser)
-                    browser.removePendingAudio();
-
+                if (browser) browser.removePendingAudio();
             }
 
             this.currentAudio = null;
             this.isPlaying = false;
 
             this.broadcastQueue();
-
             this.tryPlayNext();
 
         }, 40000);
-
     }
-
-    // -----------------------------
-    // COLA
-    // -----------------------------
 
     broadcastQueue() {
-
-        console.log(
-            `📢 queue:update -> ${this.queue.size()}`
-        );
-
-        this.io.emit("queue:update", {
-            size: this.queue.size()
-        });
-
+        console.log(`📢 queue:update -> ${this.queue.size()}`);
+        this.io.emit("queue:update", { size: this.queue.size() });
     }
-
 }
 
 module.exports = SocketManager;
